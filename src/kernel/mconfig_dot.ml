@@ -152,7 +152,7 @@ type config = {
   cmi_path     : string list;
   cmt_path     : string list;
   packages     : string list;
-  flags        : string list list;
+  flags        : (string * string list) list;
   extensions   : string list;
   suffixes     : (string * string) list;
   stdlib       : string option;
@@ -220,7 +220,7 @@ let prepend_config ~stdlib {path; directives; _} config =
     | `SUFFIX suffix ->
       {config with suffixes = (parse_suffix suffix) @ config.suffixes}
     | `FLG flags ->
-      {config with flags = Shell.split_command flags :: config.flags}
+      {config with flags = (cwd, Shell.split_command flags) :: config.flags}
     | `STDLIB path ->
       {config with stdlib = Some (canonicalize_filename ~cwd path)}
     | `FINDLIB path ->
