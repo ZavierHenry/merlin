@@ -10,6 +10,8 @@
 (*                                                                     *)
 (***********************************************************************)
 
+open Std
+
 type error =
   | CannotRun of string
   | WrongMagic of string
@@ -42,11 +44,19 @@ let pp_commandline cmd fn_in fn_out =
   Printf.sprintf "%s %s 1>%s"
     cmd (Filename.quote fn_in) (Filename.quote fn_out)
 
-let apply_rewriter magic (fn_in, failures) ppx =
-  Logger.log "Pparse" "apply_rewriter" ppx;
+let apply_rewriter magic ppx (fn_in, failures) =
+  Logger.logf "Pparse" "apply_rewriter"
+    "running %S from directory %S" ppx.workval ppx.workdir;
   Logger.log_flush ();
   let fn_out = Filename.temp_file "camlppx" "" in
-  let comm = ppx_commandline ppx fn_in fn_out in
+  begin
+    try Sys.chdir ppx.workdir
+    with exn ->
+      Logger.logf "Pparse" "apply_rewriter"
+        "cannot change directory %S: %t"
+        ppx.workdir (fun () -> Printexc.to_string exn)
+  end;
+  let comm = ppx_commandline ppx.workval fn_in fn_out in
   let failure =
     let ok = Sys.command comm = 0 in
     if not ok then Some (CannotRun comm)
@@ -104,8 +114,8 @@ let read_ast magic fn =
 
 let rewrite magic ast ppxs =
   let fn_out, _ =
-    List.fold_left
-      (apply_rewriter magic) (write_ast magic ast, 0) (List.rev ppxs)
+    List.fold_right
+      ~f:(apply_rewriter magic) ~init:(write_ast magic ast, 0) ppxs
   in
   read_ast magic fn_out
 
