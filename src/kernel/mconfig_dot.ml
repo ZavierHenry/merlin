@@ -142,7 +142,7 @@ let directives_of_files filenames =
       let file = Cache.read x in
       let dir = Filename.dirname file.path in
       let rest =
-        List.map (canonicalize_filename ~cwd:dir) file.includes @ rest
+        List.map ~f:(canonicalize_filename ~cwd:dir) file.includes @ rest
       in
       let rest =
         if file.recurse then (

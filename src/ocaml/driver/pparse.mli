@@ -11,7 +11,6 @@
 (***********************************************************************)
 
 open Std
-open Format
 
 (** If [restore = true] (the default), cookies set by external rewriters will be
     kept for later calls. *)

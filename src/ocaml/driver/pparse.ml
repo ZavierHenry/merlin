@@ -91,7 +91,7 @@ let apply_rewriter magic ppx (fn_in, failures) =
           (fun () -> Printexc.to_string) exn;
         fn_in
     in
-    report_error (CannotRun comm);
+    report_error err;
     (fallback, failures + 1)
   | None ->
     Misc.remove_file fn_in;
@@ -141,21 +141,6 @@ let apply_rewriters ~ppx ?restore ~tool_name = function
     `Interface (apply_rewriters_sig ~ppx ?restore ~tool_name ast)
   | `Implementation ast ->
     `Implementation (apply_rewriters_str ~ppx ?restore ~tool_name ast)
-
-let read_ast magic fn =
-  let ic = open_in_bin fn in
-  try
-    let buffer = really_input_string ic (String.length magic) in
-    assert(buffer = magic); (* already checked by apply_rewriter *)
-    Location.input_name := input_value ic;
-    let ast = input_value ic in
-    close_in ic;
-    Misc.remove_file fn;
-    ast
-  with exn ->
-    close_in ic;
-    Misc.remove_file fn;
-    raise exn
 
 let apply_pp ~workdir ~filename ~source ~pp =
   let fn_in = Filename.temp_file "merlinpp" (Filename.basename filename) in
