@@ -54,6 +54,8 @@ type merlin = {
   log_file    : string option;
   trace       : bool;
 
+  exclude_query_dir : bool;
+
   flags_to_apply    : flag_list list;
   packages_to_load  : string list;
 
@@ -65,6 +67,7 @@ type merlin = {
   packages_ppx  : Ppxsetup.t;
 
   failures    : string list;
+  extension_to_reader : (string * string) list
 }
 
 val dump_merlin : merlin -> json

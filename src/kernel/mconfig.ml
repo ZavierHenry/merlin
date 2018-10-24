@@ -106,6 +106,8 @@ type merlin = {
   log_file    : string option;
   trace       : bool;
 
+  exclude_query_dir : bool;
+
   flags_to_apply    : flag_list list;
   packages_to_load  : string list;
 
@@ -117,6 +119,8 @@ type merlin = {
   packages_ppx  : Ppxsetup.t;
 
   failures    : string list;
+
+  extension_to_reader : (string * string) list
 
 }
 
@@ -155,6 +159,12 @@ let dump_merlin x =
     "packages_path"    , `List (List.map ~f:Json.string x.packages_path);
 
     "failures"         , `List (List.map ~f:Json.string x.failures);
+    "assoc_suffixes"   , `List (
+      List.map ~f:(fun (suffix,reader) -> `Assoc [
+          "extension", `String suffix;
+          "reader", `String reader;
+        ]) x.extension_to_reader
+    )
   ]
 
 type query = {
@@ -263,6 +273,7 @@ let load_dotmerlins ~filenames t =
     source_path = dot.source_path @ merlin.source_path;
     cmi_path = dot.cmi_path @ merlin.cmi_path;
     cmt_path = dot.cmt_path @ merlin.cmt_path;
+    exclude_query_dir = dot.exclude_query_dir || merlin.exclude_query_dir;
     extensions = dot.extensions @ merlin.extensions;
     suffixes = dot.suffixes @ merlin.suffixes;
     stdlib = (if dot.stdlib = None then merlin.stdlib else dot.stdlib);
@@ -327,6 +338,29 @@ let merlin_flags = [
     Marg.param "command" (fun reader merlin ->
         {merlin with reader = Shell.split_command reader }),
     "<command> Use <command> as a merlin reader"
+  );
+  (
+    "-assocsuffix",
+    Marg.param "suffix:reader"
+      (fun assoc_pair merlin ->
+         match Misc.rev_string_split ~on:':' assoc_pair with
+         | [reader;suffix] ->
+              {merlin with
+               extension_to_reader = (suffix,reader)::merlin.extension_to_reader}
+         | _ -> merlin
+      ),
+    "Associate suffix with reader"
+  );
+  (
+    "-addsuffix",
+    Marg.param "implementation Suffix, interface Suffix"
+    (fun suffix_pair merlin ->
+      match Misc.rev_string_split ~on:':' suffix_pair with
+      | [intf;impl] ->
+        {merlin with suffixes = (impl,intf)::merlin.suffixes}
+      | _ -> merlin
+    ),
+    "Add a suffix implementation,interface pair"
   );
   (
     "-extension",
@@ -613,6 +647,8 @@ let initial = {
     log_file    = None;
     trace       = false;
 
+    exclude_query_dir = false;
+
     flags_to_apply    = [];
     packages_to_load  = [];
     flags_applied     = [];
@@ -623,6 +659,7 @@ let initial = {
     packages_ppx  = Ppxsetup.empty;
 
     failures = [];
+    extension_to_reader = [(".re","reason");(".rei","reason")];
   };
   query = {
     filename = "*buffer*";
@@ -737,7 +774,12 @@ let build_path config = (
     List.map ~f:(Misc.expand_directory stdlib) dirs
   in
   let stdlib = if config.ocaml.no_std_include then [] else [stdlib] in
-  let result = config.query.directory :: List.rev_append exp_dirs stdlib in
+  let dirs = List.rev_append exp_dirs stdlib in
+  let result =
+    if config.merlin.exclude_query_dir
+    then dirs
+    else config.query.directory :: dirs
+  in
   Logger.logf "Mconfig" "build_path" "%d items in path, %t after deduplication"
     (List.length result)
     (fun () -> string_of_int (List.length (List.filter_dup result)));
